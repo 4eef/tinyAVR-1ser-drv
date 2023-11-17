@@ -12,27 +12,45 @@
 #include "clock.h"
 
 /*!****************************************************************************
-* @brief    System clock settings initializer (20 MHz CLK)
+* @brief    System clock settings initializer
 */
-eDrvError clock_init(void){
+eDrvError clock_init(CLKCTRL_CLKSEL_t clkSrc, CLKCTRL_PDIV_t pDiv, bool prscEn, bool runStby20M, bool runStby32K){
     eDrvError exitStatus = drvUnknownError;
     uint8_t temp;
     
     temp = 0;
     temp &= ~CLKCTRL_CLKOUT_bm;                                                 //Disable CLKOUT
     temp &= ~CLKCTRL_CLKSEL_gm;
-    temp |= CLKCTRL_CLKSEL_OSC20M_gc;                                           //Set 16/20M clock source
+    temp |= clkSrc;
     _PROTECTED_WRITE(CLKCTRL.MCLKCTRLA, temp);
+    
     temp = 0;
-    temp &= ~CLKCTRL_PEN_bm;                                                    //Disable prescaler
     temp &= ~CLKCTRL_PDIV_gm;
-    temp |= CLKCTRL_PDIV_2X_gc;                                                 //Div by 2 by default
+    temp |= pDiv;
     _PROTECTED_WRITE(CLKCTRL.MCLKCTRLB, temp);
+    
     temp = 0;
-    temp |= 1 << CLKCTRL_RUNSTDBY_bp;                                           //Run OSC20 clock in standby
+    if(prscEn){
+        temp |= CLKCTRL_PEN_bm;
+    }else{
+        temp &= ~CLKCTRL_PEN_bm;
+    }
+    _PROTECTED_WRITE(CLKCTRL.MCLKCTRLB, temp);
+    
+    temp = 0;
+    if(runStby20M){
+        temp |= 1 << CLKCTRL_RUNSTDBY_bp;
+    }else{
+        temp &= ~CLKCTRL_RUNSTDBY_bm;
+    }
     _PROTECTED_WRITE(CLKCTRL.OSC20MCTRLA, temp);
+    
     temp = 0;
-    temp |= 1 << CLKCTRL_RUNSTDBY_bp;                                           //Run OSC32 clock in standby
+    if(runStby32K){
+        temp |= 1 << CLKCTRL_RUNSTDBY_bp;
+    }else{
+        temp &= ~CLKCTRL_RUNSTDBY_bm;
+    }
     _PROTECTED_WRITE(CLKCTRL.OSC32KCTRLA, temp);
     
     exitStatus = drvNoError;
