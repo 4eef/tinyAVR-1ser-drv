@@ -14,7 +14,6 @@
 #include <avr/io.h>
 #include <avr/wdt.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include "drv_errors.h"
 
