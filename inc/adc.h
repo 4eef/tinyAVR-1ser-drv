@@ -72,16 +72,11 @@ typedef struct{
     ADC_WINCM_t         wndCmp;                                                 //Window comparator
 }adcChannel_type;
 
-typedef enum{
-    ADC_TSENSE,
-    ADC_NOT_USED
-}eAdcChNum_type;
-
 /*!****************************************************************************
 * Prototypes for the functions
 */
 eDrvError adc_init(ADC_t *p, ADC_RESSEL_t resolution, ADC_DUTYCYC_t dutyCyc, ADC_ASDV_t autoSmpDelay, uint8_t startEvent);
-eDrvError adc_getSample(eAdcChNum_type adcChannel, uint16_t *pData, uint8_t *pOverSampled, uint16_t *pRefVolt);
+eDrvError adc_getSample(adcChannel_type *pAdcChannel, uint16_t *pData, uint8_t *pOverSampled, uint16_t *pRefVolt);
 
 #endif //adc_H
 /***************** (C) COPYRIGHT ************** END OF FILE ******** 4eef ****/

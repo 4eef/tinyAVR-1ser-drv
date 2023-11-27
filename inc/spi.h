@@ -15,7 +15,6 @@
 #include <avr/io.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "gpio.h"
 #include "drv_errors.h"
 
 /*!****************************************************************************

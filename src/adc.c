@@ -12,13 +12,6 @@
 #include "adc.h"
 
 /*!****************************************************************************
-* MEMORY
-*/
-adcChannel_type const adcChannels[] = {
-    adcChInit(ADC0, ADC_INITDLY_DLY0_gc, ADC_MUXPOS_AIN6_gc, 0, 1, 0, ADC_PRESC_DIV16_gc, ADC_REFSEL_VDDREF_gc, VREF_ADC_REFSEL_1V1_gc, ADC_SAMPNUM_ACC8_gc, ADC_WINCM_NONE_gc),//Temperature sensor
-};
-
-/*!****************************************************************************
 * Local function prototypes
 */
 eDrvError adcDelay(uint16_t time);
@@ -29,6 +22,10 @@ eDrvError adcDelay(uint16_t time);
 eDrvError adc_init(ADC_t *p, ADC_RESSEL_t resolution, ADC_DUTYCYC_t dutyCyc, ADC_ASDV_t autoSmpDelay, uint8_t startEvent){
     eDrvError exitStatus = drvUnknownError;
     
+    //Perform check
+    if(p == NULL){
+        return drvBadParameter;
+    }
     //Initialize main ADC parameters
     p->CTRLA    &= ~ADC_RESSEL_bm;
     p->CTRLA    |= resolution;
@@ -50,33 +47,33 @@ eDrvError adc_init(ADC_t *p, ADC_RESSEL_t resolution, ADC_DUTYCYC_t dutyCyc, ADC
 /*!****************************************************************************
 * @brief    Getting a sample from single channel routine. Works in blocking mode
 */
-eDrvError adc_getSample(eAdcChNum_type adcChannel, uint16_t *pData, uint8_t *pOverSampled, uint16_t *pRefVolt){
+eDrvError adc_getSample(adcChannel_type *pAdcChannel, uint16_t *pData, uint8_t *pOverSampled, uint16_t *pRefVolt){
     eDrvError exitStatus = drvUnknownError, drvExStatus;
     uint8_t i;
     
     //Perform checks
-    if((pData == NULL) && (pOverSampled == NULL) && (pRefVolt == NULL)){
+    if((pAdcChannel == NULL) || (pData == NULL) || (pOverSampled == NULL) || (pRefVolt == NULL)){
         return drvBadParameter;
     }
     
     //VREF
-    if(adcChannels[adcChannel].refSel == ADC_REFSEL_INTREF_gc){
-        if((adcChannels[adcChannel].p == &ADC0) && (VREF.CTRLA != adcChannels[adcChannel].intRefSrc)){
+    if(pAdcChannel->refSel == ADC_REFSEL_INTREF_gc){
+        if((pAdcChannel->p == &ADC0) && (VREF.CTRLA != pAdcChannel->intRefSrc)){
             VREF.CTRLB &= ~VREF_ADC0REFEN_bm;
             VREF.CTRLA &= ~VREF_ADC0REFSEL_gm;
-            VREF.CTRLA |= adcChannels[adcChannel].intRefSrc;
+            VREF.CTRLA |= pAdcChannel->intRefSrc;
             VREF.CTRLB |= 1 << VREF_ADC0REFEN_bp;
-        }else if((adcChannels[adcChannel].p == &ADC1) && (VREF.CTRLC != adcChannels[adcChannel].intRefSrc)){
+        }else if((pAdcChannel->p == &ADC1) && (VREF.CTRLC != pAdcChannel->intRefSrc)){
             VREF.CTRLD &= ~VREF_ADC1REFEN_bm;
             VREF.CTRLC &= ~VREF_ADC1REFSEL_gm;
-            VREF.CTRLC |= adcChannels[adcChannel].intRefSrc;
+            VREF.CTRLC |= pAdcChannel->intRefSrc;
             VREF.CTRLD |= 1 << VREF_ADC1REFEN_bp;
         }
         //Perform delay to stabilize ADC
         drvExStatus = adcDelay(ADC_STABILIZE_TIME);
         if(drvExStatus != drvNoError) return drvHwError;
         //Return reference voltage
-        switch(adcChannels[adcChannel].intRefSrc){
+        switch(pAdcChannel->intRefSrc){
             case VREF_ADC_REFSEL_0V55_gc:
                 *pRefVolt = ADC_VREF_0V55;
                 break;
@@ -96,14 +93,14 @@ eDrvError adc_getSample(eAdcChNum_type adcChannel, uint16_t *pData, uint8_t *pOv
                 *pRefVolt = ADC_ERR;
                 break;
         }
-    }else if(adcChannels[adcChannel].refSel == ADC_REFSEL_VDDREF_gc){
+    }else if(pAdcChannel->refSel == ADC_REFSEL_VDDREF_gc){
         *pRefVolt = ADC_VREF_VDD;
     }else{
         //Not implemented yet!
         *pRefVolt = ADC_ERR;
     }
     //Return oversampling size
-    switch(adcChannels[adcChannel].smpAccNum){
+    switch(pAdcChannel->smpAccNum){
         case ADC_SAMPNUM_ACC1_gc:
             *pOverSampled = ADC_OVERSAMPLING_0;
             break;
@@ -130,31 +127,31 @@ eDrvError adc_getSample(eAdcChNum_type adcChannel, uint16_t *pData, uint8_t *pOv
             break;
     }
     //Initialize rest of ADC
-    adcChannels[adcChannel].p->CTRLA &= ~ADC_ENABLE_bm;
-    adcChannels[adcChannel].p->CTRLD &= ~ADC_INITDLY_gm;
-    adcChannels[adcChannel].p->CTRLD |= adcChannels[adcChannel].initDelay;
-    adcChannels[adcChannel].p->MUXPOS &= ~ADC_MUXPOS_gm;
-    adcChannels[adcChannel].p->MUXPOS |= adcChannels[adcChannel].numCh;
-    adcChannels[adcChannel].p->SAMPCTRL &= ~ADC_SAMPLEN_gm;
-    adcChannels[adcChannel].p->SAMPCTRL |= adcChannels[adcChannel].smpLen << ADC_SAMPLEN_gp;
-    adcChannels[adcChannel].p->SAMPCTRL &= ~ADC_SAMPCAP_bm;
-    adcChannels[adcChannel].p->SAMPCTRL |= adcChannels[adcChannel].smpCap << ADC_SAMPCAP_bp;
-    adcChannels[adcChannel].p->CTRLA &= ~ADC_FREERUN_bm;
-    adcChannels[adcChannel].p->CTRLA |= adcChannels[adcChannel].freerun << ADC_FREERUN_bp;
-    adcChannels[adcChannel].p->CTRLC &= ~ADC_PRESC_gm;
-    adcChannels[adcChannel].p->CTRLC |= adcChannels[adcChannel].prescaler;
-    adcChannels[adcChannel].p->CTRLC &= ~ADC_REFSEL_gm;
-    adcChannels[adcChannel].p->CTRLC |= adcChannels[adcChannel].refSel;
-    adcChannels[adcChannel].p->CTRLB &= ~ADC_SAMPNUM_gm;
-    adcChannels[adcChannel].p->CTRLB |= adcChannels[adcChannel].smpAccNum;
-    adcChannels[adcChannel].p->CTRLE &= ~ADC_WINCM_gm;
-    adcChannels[adcChannel].p->CTRLE |= adcChannels[adcChannel].wndCmp;
-    adcChannels[adcChannel].p->CTRLA |= 1 << ADC_ENABLE_bp;
+    pAdcChannel->p->CTRLA &= ~ADC_ENABLE_bm;
+    pAdcChannel->p->CTRLD &= ~ADC_INITDLY_gm;
+    pAdcChannel->p->CTRLD |= pAdcChannel->initDelay;
+    pAdcChannel->p->MUXPOS &= ~ADC_MUXPOS_gm;
+    pAdcChannel->p->MUXPOS |= pAdcChannel->numCh;
+    pAdcChannel->p->SAMPCTRL &= ~ADC_SAMPLEN_gm;
+    pAdcChannel->p->SAMPCTRL |= pAdcChannel->smpLen << ADC_SAMPLEN_gp;
+    pAdcChannel->p->SAMPCTRL &= ~ADC_SAMPCAP_bm;
+    pAdcChannel->p->SAMPCTRL |= pAdcChannel->smpCap << ADC_SAMPCAP_bp;
+    pAdcChannel->p->CTRLA &= ~ADC_FREERUN_bm;
+    pAdcChannel->p->CTRLA |= pAdcChannel->freerun << ADC_FREERUN_bp;
+    pAdcChannel->p->CTRLC &= ~ADC_PRESC_gm;
+    pAdcChannel->p->CTRLC |= pAdcChannel->prescaler;
+    pAdcChannel->p->CTRLC &= ~ADC_REFSEL_gm;
+    pAdcChannel->p->CTRLC |= pAdcChannel->refSel;
+    pAdcChannel->p->CTRLB &= ~ADC_SAMPNUM_gm;
+    pAdcChannel->p->CTRLB |= pAdcChannel->smpAccNum;
+    pAdcChannel->p->CTRLE &= ~ADC_WINCM_gm;
+    pAdcChannel->p->CTRLE |= pAdcChannel->wndCmp;
+    pAdcChannel->p->CTRLA |= 1 << ADC_ENABLE_bp;
     //Perform measurement
     for(i = 0; i < ADC_MEASUREMENTS_NUM; i++){
-        adcChannels[adcChannel].p->COMMAND |= 1 << ADC_STCONV_bp;
-        while(!(adcChannels[adcChannel].p->INTFLAGS & ADC_RESRDY_bm));          //TO DO: add a timer
-        *pData = adcChannels[adcChannel].p->RES;
+        pAdcChannel->p->COMMAND |= 1 << ADC_STCONV_bp;
+        while(!(pAdcChannel->p->INTFLAGS & ADC_RESRDY_bm));          //TO DO: add a timer
+        *pData = pAdcChannel->p->RES;
     }
     
     exitStatus = drvNoError;
